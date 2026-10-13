@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Golden Ratio Camera</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+#video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#video.mirror{transform:scaleX(-1)}
+#overlay{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+#tap{position:fixed;inset:0}
+.top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 12px 14px;display:flex;align-items:center;gap:10px;background:linear-gradient(#000a,#0000)}
+#badge{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#0009;border:2px solid #E74C3C;font-weight:700;transition:border-color .2s}
+#badge.ok{border-color:#2ECC71}
+#score{font-size:18px;min-width:28px;text-align:center}
+#status{flex:1;font-size:13px;line-height:1.35;text-shadow:0 1px 3px #000}
+.icon{width:42px;height:42px;border-radius:50%;border:none;background:#0009;color:#fff;font-size:20px}
+#hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 72px);background:#000b;padding:7px 14px;border-radius:12px;font-size:14px;line-height:1.5;text-align:center;max-width:92%;display:none}
+#rec{position:fixed;top:calc(env(safe-area-inset-top) + 130px);left:50%;transform:translateX(-50%);background:#E74C3C;padding:4px 12px;border-radius:8px;font-weight:700;display:none}
+#toast{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 170px);left:50%;transform:translateX(-50%);background:#000c;padding:8px 14px;border-radius:10px;font-size:14px;display:none;max-width:90%;text-align:center}
+#count{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000;pointer-events:none}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
+#focusRing{position:fixed;width:70px;height:70px;border:2px solid #FFD54F;border-radius:50%;pointer-events:none;display:none;transform:translate(-50%,-50%)}
+.bottom{position:fixed;bottom:0;left:0;right:0;padding:10px 22px calc(env(safe-area-inset-bottom) + 18px);background:linear-gradient(#0000,#000b)}
+#modes{display:flex;justify-content:center;gap:24px;margin-bottom:14px}
+#modes button{background:none;border:none;color:#bbb;font-size:15px;font-weight:600;padding:4px 2px;border-bottom:2px solid transparent}
+#modes button.on{color:#FFD54F;border-color:#FFD54F}
+.row{display:flex;align-items:center;justify-content:space-between}
+#shutter{width:78px;height:78px;border-radius:50%;border:4px solid #fff;background:none;display:flex;align-items:center;justify-content:center}
+#shutter span{width:62px;height:62px;border-radius:50%;background:#fff;transition:all .2s}
+#shutter.ok span{background:#2ECC71}
+#shutter.video span{background:#E74C3C}
+#shutter.recording span{width:30px;height:30px;border-radius:6px}
+#thumbBtn{width:48px;height:48px;border-radius:10px;border:2px solid #fff;background:#222 center/cover;color:#fff;font-size:20px}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:80%;overflow:auto;background:#141414f5;border-radius:18px 18px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);display:none;z-index:10}
+.sheet.show{display:block}
+.sheet h3{font-size:15px;margin:16px 0 6px;color:#FFD54F}
+.head{display:flex;justify-content:space-between;align-items:center}
+.field{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #ffffff14;gap:12px;font-size:14px}
+.field select,.field input[type=range]{max-width:55%}
+select{background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:8px;padding:6px}
+input[type=checkbox]{width:22px;height:22px;accent-color:#2ECC71}
+.note{font-size:12px;color:#999;padding:6px 0;line-height:1.5}
+#galleryGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.gi{aspect-ratio:1;background:#222;border-radius:8px;overflow:hidden}
+.gi img,.gi video{width:100%;height:100%;object-fit:cover}
+#viewer{position:fixed;inset:0;background:#000;z-index:20;display:none;flex-direction:column}
+#vMedia{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#vMedia img,#vMedia video{max-width:100%;max-height:100%}
+.acts{display:flex;justify-content:space-around;padding:14px 10px calc(env(safe-area-inset-bottom) + 14px)}
+.btn{background:#2a2a2a;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:14px}
+.btn.primary{background:#2ECC71;color:#000;font-weight:700}
+#start{position:fixed;inset:0;z-index:30;background:radial-gradient(#1c1c1c,#000);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center;gap:16px}
+#start h1{font-size:26px;color:#FFD54F}
+#start p{color:#bbb;font-size:14px;line-height:1.7;max-width:420px}
+#err{color:#E74C3C;font-size:14px;max-width:420px}
+</style>
+</head>
+<body>
+<video id="video" playsinline muted autoplay></video>
+<canvas id="overlay"></canvas>
+<div id="tap"></div>
+<div id="focusRing"></div>
+<div id="flash"></div>
+<div id="count"></div>
+
+<div class="top">
+  <div id="badge"><span>φ</span><span id="score">--</span></div>
+  <div id="status">กำลังเตรียมกล้อง...</div>
+  <button class="icon" id="setBtn">⚙️</button>
+</div>
+<div id="hint"></div>
+<div id="rec">● 00:00</div>
+<div id="toast"></div>
+
+<div class="bottom">
+  <div id="modes">
+    <button data-mode="landscape">วิว</button>
+    <button data-mode="portrait">บุคคล</button>
+    <button data-mode="video">วิดีโอ</button>
+  </div>
+  <div class="row">
+    <button id="thumbBtn"></button>
+    <button id="shutter"><span></span></button>
+    <button class="icon" id="flipBtn">🔄</button>
+  </div>
+</div>
+
+<div class="sheet" id="settings">
+  <div class="head"><b>ตั้งค่า</b><button class="btn" data-close="settings">ปิด</button></div>
+  <h3>องค์ประกอบภาพ</h3>
+  <div class="field">เส้นนำสายตา<select data-k="grid"><option value="both">Phi Grid + เกลียว</option><option value="phi">Phi Grid</option><option value="spiral">Fibonacci Spiral</option></select></div>
+  <div class="field">ทิศทางเกลียว<select data-k="spiral"><option value="auto">อัตโนมัติ</option><option value="0">↘ ขวาล่าง</option><option value="1">↙ ซ้ายล่าง</option><option value="2">↗ ขวาบน</option><option value="3">↖ ซ้ายบน</option></select></div>
+  <div class="field">ความเข้มงวด<select data-k="tolerance"><option value="easy">ง่าย</option><option value="normal">ปกติ</option><option value="strict">มืออาชีพ</option></select></div>
+  <div class="field">คำแนะนำบนจอ<input type="checkbox" data-k="hints"></div>
+  <div class="field">เสียง/สั่นเมื่อได้สัดส่วน<input type="checkbox" data-k="feedback"></div>
+  <h3>การถ่าย</h3>
+  <div class="field">ถ่ายอัตโนมัติเมื่อเส้นเป็นสีเขียว<input type="checkbox" data-k="autoCapture"></div>
+  <div class="field">ตั้งเวลาถ่าย<select data-k="timer"><option value="0">ปิด</option><option value="3">3 วินาที</option><option value="10">10 วินาที</option></select></div>
+  <div class="field">ครอปเป็นสัดส่วนทองคำ<select data-k="crop"><option value="none">ไม่ครอป (ตามจอ)</option><option value="land">แนวนอน 1.618 : 1</option><option value="port">แนวตั้ง 1 : 1.618</option></select></div>
+  <div class="field">ฝังเส้นนำลงในไฟล์<input type="checkbox" data-k="burn"></div>
+  <div class="field">ดาวน์โหลดลงเครื่องทันที<input type="checkbox" data-k="autoSave"></div>
+  <div class="field">ความละเอียด<select data-k="res"><option value="720">HD 720p</option><option value="1080">Full HD 1080p</option><option value="2160">4K</option></select></div>
+  <div class="field">เฟรมเรต<select data-k="fps"><option value="30">30 fps</option><option value="60">60 fps</option></select></div>
+  <h3>ตั้งค่ากล้อง (ตามที่อุปกรณ์รองรับ)</h3>
+  <div id="camCtl"></div>
+</div>
+
+<div class="sheet" id="gallery">
+  <div class="head"><b>ผลงาน</b><button class="btn" data-close="gallery">ปิด</button></div>
+  <p class="note">ไฟล์จะเก็บไว้ชั่วคราวจนกว่าจะปิดแอป — แตะที่ไฟล์แล้วกด "บันทึก" หรือ "แชร์" เพื่อเก็บลงเครื่อง</p>
+  <div id="galleryGrid"></div>
+</div>
+
+<div id="viewer">
+  <div id="vMedia"></div>
+  <div class="acts">
+    <button class="btn" id="vClose">ปิด</button>
+    <button class="btn" id="vDel">ลบ</button>
+    <button class="btn" id="vShare">แชร์</button>
+    <button class="btn primary" id="vSave">บันทึก</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>φ Golden Ratio Camera</h1>
+  <p>แอปจะวิเคราะห์ภาพจากกล้องแบบเรียลไทม์<br>
+  <b style="color:#2ECC71">เส้นสีเขียว</b> = องค์ประกอบได้สัดส่วนทองคำแล้ว<br>
+  <b style="color:#E74C3C">เส้นสีแดง</b> = ยังไม่ได้ ให้ปรับตามคำแนะนำบนจอ<br>
+  ภาพทั้งหมดประมวลผลในเครื่อง ไม่ถูกอัปโหลดไปที่ใด</p>
+  <button class="btn primary" id="startBtn">เริ่มใช้งานกล้อง</button>
+  <div id="err"></div>
+</div>
+
+<script>
+/* ===================== ค่าคงที่ & การตั้งค่า ===================== */
+const PHI=(1+Math.sqrt(5))/2, G1=1-1/PHI /*0.382*/, G2=1/PHI /*0.618*/;
+const GREEN='#2ECC71', RED='#E74C3C', GOLD='#FFD54F';
+const $=id=>document.getElementById(id);
+const video=$('video'), ov=$('overlay'), octx=ov.getContext('2d');
+const DEF={mode:'landscape',grid:'both',spiral:'auto',tolerance:'normal',hints:true,feedback:true,
+  autoCapture:false,timer:0,crop:'none',burn:false,autoSave:false,res:'1080',fps:30,facing:'environment'};
+const S=Object.assign({},DEF,JSON.parse(localStorage.getItem('grcam')||'{}'));
+const saveS=()=>localStorage.setItem('grcam',JSON.stringify(S));
+// pt = ระยะห่างจุดสนใจถึงจุดทองคำ, hz = ระยะขอบฟ้าถึงเส้นทองคำ, tilt = องศาเอียงสูงสุด
+const TOL={easy:{pt:.08,hz:.045,tilt:2.5},normal:{pt:.055,hz:.03,tilt:1.5},strict:{pt:.035,hz:.018,tilt:.8}};
+const MIMES=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+
+const st={stream:null,track:null,subject:null,horizon:null,face:null,subjPt:null,target:null,spiralO:0,
+  score:null,ok:false,good:0,bad:0,hMiss:0,sMiss:0,hints:[],label:'',okSince:0,lastAuto:0,
+  counting:false,rec:null,recStart:0,recTicks:0,recGood:0,mic:null};
+let faceDetector=null, audioCtx=null;
+
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const clamp=v=>Math.max(0,Math.min(1,v));
+const sc=(d,tol)=>clamp(1-d/(tol*4));
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+/* ===================== เรขาคณิต Fibonacci Spiral ===================== */
+const SP=(()=>{let x=0,y=0,w=PHI,h=1;const arcs=[];
+  for(let i=0;i<14;i++){const k=i%4;let s;
+    if(k===0){s=h;arcs.push([x+s,y+s,s,Math.PI]);x+=s;w-=s;}
+    else if(k===1){s=w;arcs.push([x,y+s,s,1.5*Math.PI]);y+=s;h-=s;}
+    else if(k===2){s=h;arcs.push([x+w-s,y,s,0]);w-=s;}
+    else{s=w;arcs.push([x+s,y+h-s,s,.5*Math.PI]);h-=s;}}
+  return{arcs,pole:[x+w/2,y+h/2]};})();
+function mapUV(u,v,o,W,H){let X,Y;
+  if(W>=H){X=u/PHI*W;Y=v*H;}else{X=v*W;Y=u/PHI*H;}
+  if(o&1)X=W-X;if(o&2)Y=H-Y;return[X,Y];}
+function poleN(o){const W=innerWidth,H=innerHeight,[X,Y]=mapUV(SP.pole[0],SP.pole[1],o,W,H);return{x:X/W,y:Y/H};}
+function targets(){const t=[];
+  if(S.grid!=='spiral')for(const x of[G1,G2])for(const y of[G1,G2])t.push({x,y});
+  if(S.grid!=='phi')t.push(poleN(st.spiralO));
+  return t;}
+
+/* ===================== วาดเส้นนำ ===================== */
+function drawGuides(ctx,W,H,color,lw){
+  ctx.save();ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=3;
+  if(S.grid!=='spiral'){ctx.beginPath();
+    for(const g of[G1,G2]){ctx.moveTo(g*W,0);ctx.lineTo(g*W,H);ctx.moveTo(0,g*H);ctx.lineTo(W,g*H);}
+    ctx.stroke();}
+  if(S.grid!=='phi'){ctx.beginPath();let first=true;
+    for(const[cx,cy,r,a0]of SP.arcs)for(let j=0;j<=20;j++){const a=a0+j/20*Math.PI/2;
+      const[X,Y]=mapUV(cx+r*Math.cos(a),cy+r*Math.sin(a),st.spiralO,W,H);
+      if(first){ctx.moveTo(X,Y);first=false;}else ctx.lineTo(X,Y);}
+    ctx.stroke();}
+  ctx.restore();}
+
+function render(){
+  const W=innerWidth,H=innerHeight,col=st.ok?GREEN:RED;
+  octx.clearRect(0,0,W,H);
+  drawGuides(octx,W,H,col,st.ok?2.6:1.6);
+  for(const p of targets()){
+    const isT=st.target&&Math.abs(st.target.x-p.x)<1e-6&&Math.abs(st.target.y-p.y)<1e-6;
+    octx.beginPath();octx.arc(p.x*W,p.y*H,isT?11:6,0,7);octx.strokeStyle=col;octx.lineWidth=2;octx.stroke();
+    if(isT&&st.ok){octx.fillStyle=GREEN+'88';octx.fill();}}
+  if(st.horizon&&S.mode!=='portrait'){const h=st.horizon,dy=Math.tan(h.angle*Math.PI/180)*W/2;
+    octx.save();octx.setLineDash([8,6]);octx.strokeStyle='#4FC3F7';octx.lineWidth=2;
+    octx.beginPath();octx.moveTo(0,h.y*H-dy);octx.lineTo(W,h.y*H+dy);octx.stroke();
+    octx.fillStyle='#4FC3F7';octx.font='12px system-ui';octx.fillText(`ขอบฟ้า ${h.angle.toFixed(1)}°`,8,h.y*H-dy-6);octx.restore();}
+  if(st.face){const f=st.face;octx.strokeStyle=GOLD;octx.lineWidth=1.5;
+    octx.strokeRect(f.x0*W,f.y0*H,(f.x1-f.x0)*W,(f.y1-f.y0)*H);}
+  const s=st.subjPt;
+  if(s){const X=s.x*W,Y=s.y*H;octx.strokeStyle=GOLD;octx.lineWidth=2;octx.beginPath();octx.arc(X,Y,14,0,7);
+    octx.moveTo(X-24,Y);octx.lineTo(X-8,Y);octx.moveTo(X+8,Y);octx.lineTo(X+24,Y);
+    octx.moveTo(X,Y-24);octx.lineTo(X,Y-8);octx.moveTo(X,Y+8);octx.lineTo(X,Y+24);octx.stroke();
+    if(st.target&&!st.ok){octx.save();octx.setLineDash([5,5]);octx.beginPath();octx.moveTo(X,Y);
+      octx.lineTo(st.target.x*W,st.target.y*H);octx.stroke();octx.restore();}}
+}
+
+/* ===================== วิเคราะห์ภาพ ===================== */
+const ac=document.createElement('canvas'), actx=ac.getContext('2d',{willReadFrequently:true});
+function visRect(){const vw=video.videoWidth,vh=video.videoHeight,W=innerWidth,H=innerHeight,
+  s=Math.max(W/vw,H/vh),sw=W/s,sh=H/s;return{sx:(vw-sw)/2,sy:(vh-sh)/2,sw,sh,vw,vh};}
+
+function boxBlur(src,w,h,r){const W1=w+1,I=new Float64Array(W1*(h+1));
+  for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=src[y*w+x];I[(y+1)*W1+x+1]=I[y*W1+x+1]+row;}}
+  const out=new Float32Array(w*h);
+  for(let y=0;y<h;y++){const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+    for(let x=0;x<w;x++){const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1);
+      out[y*w+x]=(I[y1*W1+x1]-I[y0*W1+x1]-I[y1*W1+x0]+I[y0*W1+x0])/((x1-x0)*(y1-y0));}}
+  return out;}
+
+function detectHorizon(L,w,h){
+  const prof=(x0,x1)=>{const p=new Float32Array(h);
+    for(let y=2;y<h-2;y++){let s=0;const a=(y-2)*w,b=(y+2)*w;for(let x=x0;x<x1;x++)s+=L[a+x]-L[b+x];p[y]=Math.abs(s)/(x1-x0);}
+    return p;};
+  const full=prof(0,w),y0=Math.max(2,Math.floor(h*.06)),y1=Math.min(h-2,Math.ceil(h*.94));
+  let best=0,by=-1,sum=0;
+  for(let y=y0;y<y1;y++){sum+=full[y];if(full[y]>best){best=full[y];by=y;}}
+  const mean=sum/(y1-y0);
+  if(by<0||best<8||best<mean*2.2)return null;
+  const peak=p=>{const r=Math.round(h*.15);let b=0,yy=by;
+    for(let y=Math.max(2,by-r);y<Math.min(h-2,by+r);y++)if(p[y]>b){b=p[y];yy=y;}
+    let off=0;if(yy>2&&yy<h-3){const den=p[yy-1]-2*p[yy]+p[yy+1];if(den<0)off=.5*(p[yy-1]-p[yy+1])/den;}
+    return{y:yy+off,s:b};};
+  const l=peak(prof(0,w>>1)),r=peak(prof(w>>1,w));
+  let y=by,angle=0;
+  if(l.s>best*.5&&r.s>best*.5){y=(l.y+r.y)/2;angle=Math.atan2(r.y-l.y,w/2)*180/Math.PI;}
+  if(Math.abs(angle)>15)return null;
+  return{y:(y+.5)/h,angle};}
+
+function detectSubject(L,A,B,w,h){
+  const n=w*h,m=Math.min(w,h),rs=Math.max(1,Math.round(m/45)),rb=Math.max(4,Math.round(m/5));
+  const fL=boxBlur(L,w,h,rs),fA=boxBlur(A,w,h,rs),fB=boxBlur(B,w,h,rs);
+  const cL=boxBlur(L,w,h,rb),cA=boxBlur(A,w,h,rb),cB=boxBlur(B,w,h,rb);
+  const sal=new Float32Array(n),bx=Math.round(w*.05),bY=Math.round(h*.05);let tot=0;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;
+    let v=Math.hypot(fL[i]-cL[i],1.3*(fA[i]-cA[i]),1.3*(fB[i]-cB[i]));
+    if(x<bx||x>=w-bx||y<bY||y>=h-bY)v*=.35;sal[i]=v;tot+=v;}
+  const sm=boxBlur(sal,w,h,Math.max(2,Math.round(m/14)));
+  let mx=0,mi=0;for(let i=0;i<n;i++)if(sm[i]>mx){mx=sm[i];mi=i;}
+  const px=mi%w,py=(mi/w)|0,R=Math.round(Math.max(w,h)*.12),th=mx*.6;let sx=0,sy=0,sw=0;
+  for(let y=Math.max(0,py-R);y<Math.min(h,py+R);y++)for(let x=Math.max(0,px-R);x<Math.min(w,px+R);x++){
+    const v=sm[y*w+x]-th;if(v>0){sx+=x*v;sy+=y*v;sw+=v;}}
+  const mean=tot/n;
+  return{x:((sw?sx/sw:px)+.5)/w,y:((sw?sy/sw:py)+.5)/h,conf:mean>0?mx/mean:0,mag:mx};}
+
+function smooth(prev,cur,a=.4){
+  if(!prev||Math.hypot(prev.x-cur.x,prev.y-cur.y)>.2)return cur;
+  return{x:lerp(prev.x,cur.x,a),y:lerp(prev.y,cur.y,a),conf:cur.conf};}
+
+function analyze(now){
+  const r=visRect(),m=Math.max(r.sw,r.sh),w=Math.max(16,Math.round(160*r.sw/m)),h=Math.max(16,Math.round(160*r.sh/m));
+  if(ac.width!==w||ac.height!==h){ac.width=w;ac.height=h;}
+  actx.drawImage(video,r.sx,r.sy,r.sw,r.sh,0,0,w,h);
+  const d=actx.getImageData(0,0,w,h).data,n=w*h,L=new Float32Array(n),A=new Float32Array(n),B=new Float32Array(n);
+  for(let i=0,j=0;i<n;i++,j+=4){const R=d[j],G=d[j+1],Bl=d[j+2];
+    L[i]=.299*R+.587*G+.114*Bl;A[i]=R-G;B[i]=(R+G)/2-Bl;}
+  const mir=S.facing==='user',fx=x=>mir?1-x:x;
+
+  // 1) เส้นขอบฟ้า
+  const hz=S.mode==='portrait'?null:detectHorizon(L,w,h);
+  if(hz){if(mir)hz.angle=-hz.angle;const p=st.horizon;
+    st.horizon=(p&&Math.abs(p.y-hz.y)<.15)?{y:lerp(p.y,hz.y,.4),angle:lerp(p.angle,hz.angle,.4)}:hz;st.hMiss=0;}
+  else if(++st.hMiss>4)st.horizon=null;
+
+  // 2) จุดสนใจหลัก (Saliency)
+  const sb=detectSubject(L,A,B,w,h);
+  if(sb.conf>=2&&sb.mag>=6){sb.x=fx(sb.x);st.subject=smooth(st.subject,sb);st.sMiss=0;}
+  else if(++st.sMiss>4)st.subject=null;
+
+  // 3) ใบหน้า / ดวงตา (โหมดบุคคลและวิดีโอ)
+  st.face=null;
+  if(S.mode!=='landscape'&&faceDetector){try{
+    const res=faceDetector.detectForVideo(video,now);let best=null;
+    const P=(nx,ny)=>({x:fx((nx*r.vw-r.sx)/r.sw),y:(ny*r.vh-r.sy)/r.sh});
+    for(const det of res.detections){const bb=det.boundingBox,kp=det.keypoints;if(!bb||!kp||kp.length<3)continue;
+      const a=P(bb.originX/r.vw,bb.originY/r.vh),b=P((bb.originX+bb.width)/r.vw,(bb.originY+bb.height)/r.vh);
+      const f={x0:Math.min(a.x,b.x),x1:Math.max(a.x,b.x),y0:a.y,y1:b.y,
+        eyes:[P(kp[0].x,kp[0].y),P(kp[1].x,kp[1].y)],nose:P(kp[2].x,kp[2].y)};
+      f.area=(f.x1-f.x0)*(f.y1-f.y0);if(!best||f.area>best.area)best=f;}
+    st.face=best;}catch(e){}}
+}
+
+/* ===================== ให้คะแนน & ตัดสินเขียว/แดง ===================== */
+function moveHint(p,t,name){const dx=t.x-p.x,dy=t.y-p.y,front=S.facing==='user',out=[];
+  if(Math.abs(dx)>.02)out.push(front?`ขยับ${name}ไปทาง${dx>0?'ขวา →':'ซ้าย ←'}`:`แพนกล้องไปทาง${dx>0?'ซ้าย ←':'ขวา →'}`);
+  if(Math.abs(dy)>.02)out.push(dy>0?'เงยกล้องขึ้น ↑':'ก้มกล้องลง ↓');
+  return `${name}: ${out.join(' และ ')}`;}
+
+function setOk(v){if(st.ok===v)return;st.ok=v;
+  if(v){st.okSince=performance.now();if(S.feedback){navigator.vibrate?.(35);beep();}}}
+
+function evaluate(now){
+  const T=TOL[S.tolerance]||TOL.normal,parts=[],hints=[],f=st.face;let label='';
+  const fp=f?{x:(f.x0+f.x1)/2,y:(f.y0+f.y1)/2}:st.subject;
+  if(S.spiral==='auto'){if(fp){let bo=st.spiralO,bd=dist(poleN(bo),fp);
+      for(let o=0;o<4;o++){const dd=dist(poleN(o),fp);if(dd<bd-.04){bd=dd;bo=o;}}st.spiralO=bo;}}
+  else st.spiralO=+S.spiral;
+  const TG=targets();st.subjPt=null;st.target=null;
+
+  if(f){ // บุคคล: ดวงตาอยู่จุดทองคำ + Lookroom + Headroom
+    const dir=(f.nose.x-(f.eyes[0].x+f.eyes[1].x)/2)/Math.max(.01,f.x1-f.x0);
+    let cand=TG;
+    if(dir>.12){cand=TG.filter(p=>p.x<.5);label='ตัวแบบหันขวา';}
+    else if(dir<-.12){cand=TG.filter(p=>p.x>.5);label='ตัวแบบหันซ้าย';}
+    if(!cand.length)cand=TG;
+    let bd=9,be=null,bt=null;
+    for(const e of f.eyes)for(const p of cand){const dd=dist(e,p);if(dd<bd){bd=dd;be=e;bt=p;}}
+    st.subjPt=be;st.target=bt;
+    parts.push({w:.6,s:sc(bd,T.pt),ok:bd<=T.pt});
+    if(bd>T.pt)hints.push(moveHint(be,bt,'ดวงตา'));
+    const cx=(f.x0+f.x1)/2,lookOK=Math.abs(dir)<=.12||(dir>0?cx<.5:cx>.5);
+    parts.push({w:.2,s:lookOK?1:0,ok:lookOK});
+    if(!lookOK)hints.push('เว้นพื้นที่ด้านหน้าทิศที่ตัวแบบหันไป (Lookroom)');
+    const head=f.y0>.02;parts.push({w:.2,s:head?1:.3,ok:head});
+    if(!head)hints.push('ศีรษะชิดขอบบนเกินไป ถอยกล้องหรือเงยกล้องขึ้นเล็กน้อย');
+  }else if(st.subject){ // วัตถุเด่นอยู่บนจุดทองคำ
+    const s=st.subject;let bd=9,bt=null;
+    for(const p of TG){const dd=dist(s,p);if(dd<bd){bd=dd;bt=p;}}
+    st.subjPt=s;st.target=bt;
+    parts.push({w:.5,s:sc(bd,T.pt),ok:bd<=T.pt});
+    if(bd>T.pt)hints.push(moveHint(s,bt,'จุดสนใจ'));
+  }
+  if(S.mode!=='portrait'&&st.horizon){ // ขอบฟ้าอยู่เส้น 0.382/0.618 และไม่เอียง
+    const hy=st.horizon.y,tg=Math.abs(hy-G1)<Math.abs(hy-G2)?G1:G2,dh=Math.abs(hy-tg);
+    parts.push({w:.35,s:sc(dh,T.hz),ok:dh<=T.hz});
+    if(dh>T.hz)hints.push(tg<hy?'ก้มกล้องลง ↓ ให้ขอบฟ้าขึ้นไปที่เส้นบน (0.382)':'เงยกล้องขึ้น ↑ ให้ขอบฟ้าลงมาที่เส้นล่าง (0.618)');
+    const a=st.horizon.angle,aa=Math.abs(a);
+    parts.push({w:.15,s:sc(aa,T.tilt),ok:aa<=T.tilt});
+    if(aa>T.tilt)hints.push(`กล้องเอียง ${aa.toFixed(1)}° — หมุนกล้อง${((a>0)!==(S.facing==='user'))?'ตามเข็มนาฬิกา ↻':'ทวนเข็มนาฬิกา ↺'}`);
+  }
+  st.hints=hints;st.label=label;
+  if(!parts.length){st.score=null;st.good=0;if(++st.bad>=3)setOk(false);
+    st.hints=['ยังไม่พบจุดสนใจหรือเส้นขอบฟ้าที่ชัดเจน — ลองหาวัตถุเด่น หรือให้เห็นเส้นขอบฟ้า'];return;}
+  const sw=parts.reduce((a,p)=>a+p.w,0);
+  st.score=Math.round(parts.reduce((a,p)=>a+p.w*p.s,0)/sw*100);
+  if(parts.every(p=>p.ok)){st.good++;st.bad=0;}else{st.bad++;st.good=0;}
+  if(!st.ok&&st.good>=3)setOk(true);else if(st.ok&&st.bad>=3)setOk(false);
+  if(S.autoCapture&&S.mode!=='video'&&st.ok&&!st.counting&&now-st.okSince>800&&now-st.lastAuto>3000){
+    st.lastAuto=now;takePhoto();toast('ถ่ายอัตโนมัติ ✓');}
+}
+
+function updateUI(){
+  $('badge').classList.toggle('ok',st.ok);$('shutter').classList.toggle('ok',st.ok&&S.mode!=='video');
+  $('score').textContent=st.score??'--';
+  const base=st.ok?'✓ ได้สัดส่วนทองคำแล้ว':(st.score==null?'ยังไม่พบองค์ประกอบหลัก':'ยังไม่ได้สัดส่วน — ปรับตามคำแนะนำ');
+  $('status').textContent=base+(st.label?` • ${st.label}`:'');
+  const txt=S.hints&&!st.ok&&st.hints.length?st.hints.slice(0,2).join('<br>'):'';
+  const h=$('hint');h.innerHTML=txt;h.style.display=txt?'block':'none';
+}
+
+/* ===================== กล้อง ===================== */
+async function startCamera(){
+  if(st.stream)st.stream.getTracks().forEach(t=>t.stop());
+  const R={720:[1280,720],1080:[1920,1080],2160:[3840,2160]}[S.res]||[1920,1080];
+  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:S.facing},
+    width:{ideal:R[0]},height:{ideal:R[1]},frameRate:{ideal:+S.fps}}});
+  st.stream=stream;st.track=stream.getVideoTracks()[0];
+  video.srcObject=stream;video.classList.toggle('mirror',S.facing==='user');
+  await video.play();
+  st.subject=null;st.horizon=null;st.face=null;
+  buildCamCtl();
+}
+
+function buildCamCtl(){
+  const box=$('camCtl');box.innerHTML='';const t=st.track;
+  const caps=t.getCapabilities?t.getCapabilities():{},cur=t.getSettings?t.getSettings():{};
+  const apply=c=>t.applyConstraints({advanced:[c]}).catch(e=>console.warn(e));
+  const add=(label,el)=>{const f=document.createElement('div');f.className='field';f.append(label,el);box.append(f);};
+  let count=0;
+  const modeName={focusMode:'โหมดโฟกัส',exposureMode:'โหมดวัดแสง',whiteBalanceMode:'สมดุลแสงขาว'};
+  for(const k of Object.keys(modeName))if(Array.isArray(caps[k])&&caps[k].length>1){
+    const sel=document.createElement('select');caps[k].forEach(v=>sel.add(new Option(v,v)));
+    sel.value=cur[k]||caps[k][0];sel.onchange=()=>apply({[k]:sel.value});add(modeName[k],sel);count++;}
+  const ranges=[['zoom','ซูม',null],['exposureCompensation','ชดเชยแสง (EV)',null],
+    ['exposureTime','ความไวชัตเตอร์','exposureMode'],['iso','ISO','exposureMode'],
+    ['colorTemperature','อุณหภูมิสี (K)','whiteBalanceMode'],['focusDistance','ระยะโฟกัส','focusMode'],
+    ['brightness','ความสว่าง',null],['contrast','คอนทราสต์',null],['saturation','ความอิ่มสี',null],['sharpness','ความคมชัด',null]];
+  for(const[k,label,mode]of ranges){const c=caps[k];if(!c||c.max===undefined||c.max===c.min)continue;
+    const inp=document.createElement('input');inp.type='range';inp.min=c.min;inp.max=c.max;
+    inp.step=c.step||(c.max-c.min)/100;inp.value=cur[k]??c.min;
+    const lab=document.createElement('span');
+    const upd=()=>lab.textContent=`${label}: ${(+inp.value).toFixed(['zoom','exposureCompensation','focusDistance'].includes(k)?1:0)}`;upd();
+    inp.oninput=()=>{upd();const c2={[k]:+inp.value};if(mode&&caps[mode]?.includes('manual'))c2[mode]='manual';apply(c2);};
+    add(lab,inp);count++;}
+  if(caps.torch){const cb=document.createElement('input');cb.type='checkbox';cb.checked=!!cur.torch;
+    cb.onchange=()=>apply({torch:cb.checked});add('ไฟแฟลช (Torch)',cb);count++;}
+  if(!count)box.innerHTML='<p class="note">อุปกรณ์/เบราว์เซอร์นี้ยังไม่เปิดให้ปรับค่ากล้องขั้นสูง (เช่น Safari บน iPhone) — ระบบจะใช้ค่าอัตโนมัติของกล้องแทน แนะนำ Chrome บน Android เพื่อปรับค่าได้ครบ</p>';
+}
+
+async function loadFace(){
+  const v='0.10.14';
+  try{const m=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${v}/vision_bundle.mjs`);
+    const fs=await m.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${v}/wasm`);
+    for(const delegate of['GPU','CPU']){try{
+      faceDetector=await m.FaceDetector.createFromOptions(fs,{baseOptions:{delegate,
+        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},
+        runningMode:'VIDEO',minDetectionConfidence:.5});break;}catch(e){}}
+  }catch(e){console.warn('โหลดโมเดลใบหน้าไม่สำเร็จ ใช้ระบบจุดสนใจแทน',e);}
+}
+
+/* ===================== ถ่ายภาพ ===================== */
+function flash(){const f=$('flash');f.style.transition='none';f.style.opacity=.8;
+  requestAnimationFrame(()=>{f.style.transition='opacity .3s';f.style.opacity=0;});}
+
+async function takePhoto(){
+  const r=visRect();let{sx,sy,sw,sh}=r;
+  if(S.crop!=='none'){const tg=S.crop==='land'?PHI:1/PHI;
+    if(sw/sh>tg){const nw=sh*tg;sx+=(sw-nw)/2;sw=nw;}else{const nh=sw/tg;sy+=(sh-nh)/2;sh=nh;}}
+  const c=document.createElement('canvas');c.width=Math.round(sw);c.height=Math.round(sh);
+  const x=c.getContext('2d');
+  if(S.facing==='user'){x.translate(c.width,0);x.scale(-1,1);}
+  x.drawImage(video,sx,sy,sw,sh,0,0,c.width,c.height);x.setTransform(1,0,0,1,0,0);
+  if(S.burn)drawGuides(x,c.width,c.height,st.ok?GREEN:RED,Math.max(2,c.width/400));
+  flash();
+  const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',.95));
+  addItem(blob,'jpg');
+}
+
+function countdown(n){return new Promise(res=>{st.counting=true;const c=$('count');c.style.display='flex';
+  let k=n;c.textContent=k;const iv=setInterval(()=>{k--;
+    if(k<=0){clearInterval(iv);c.style.display='none';st.counting=false;res();}else c.textContent=k;},1000);});}
+
+/* ===================== ถ่ายวิดีโอ ===================== */
+const rc=document.createElement('canvas'),rctx=rc.getContext('2d');
+function drawRecFrame(){const r=visRect();rctx.save();
+  if(S.facing==='user'){rctx.translate(rc.width,0);rctx.scale(-1,1);}
+  rctx.drawImage(video,r.sx,r.sy,r.sw,r.sh,0,0,rc.width,rc.height);rctx.restore();
+  if(S.burn)drawGuides(rctx,rc.width,rc.height,st.ok?GREEN:RED,Math.max(2,rc.width/500));}
+
+async function startRec(){
+  if(!window.MediaRecorder||!rc.captureStream){toast('เบราว์เซอร์นี้ไม่รองรับการบันทึกวิดีโอ');return;}
+  const r=visRect(),k=Math.min(1,1920/Math.max(r.sw,r.sh));
+  rc.width=Math.round(r.sw*k/2)*2;rc.height=Math.round(r.sh*k/2)*2;drawRecFrame();
+  const out=rc.captureStream(+S.fps);
+  try{st.mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:true}});
+    st.mic.getAudioTracks().forEach(t=>out.addTrack(t));}catch(e){st.mic=null;toast('บันทึกโดยไม่มีเสียง (ไม่ได้รับสิทธิ์ไมค์)');}
+  const mime=MIMES.find(m=>MediaRecorder.isTypeSupported(m))||'';
+  const rec=new MediaRecorder(out,mime?{mimeType:mime,videoBitsPerSecond:S.res==='720'?5e6:10e6}:undefined);
+  const chunks=[];rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  rec.onstop=()=>{const type=rec.mimeType||mime||'video/webm';
+    addItem(new Blob(chunks,{type}),type.includes('mp4')?'mp4':'webm');
+    st.mic&&st.mic.getTracks().forEach(t=>t.stop());
+    const pct=st.recTicks?Math.round(st.recGood/st.recTicks*100):0;
+    toast(`บันทึกวิดีโอแล้ว • อยู่ในสัดส่วนทองคำ ${pct}% ของคลิป`);};
+  rec.start(1000);st.rec=rec;st.recStart=performance.now();st.recTicks=0;st.recGood=0;
+  $('shutter').classList.add('recording');$('rec').style.display='block';$('flipBtn').style.visibility='hidden';
+}
+function stopRec(){st.rec.stop();st.rec=null;$('shutter').classList.remove('recording');
+  $('rec').style.display='none';$('flipBtn').style.visibility='visible';}
+
+/* ===================== แกลเลอรี ===================== */
+const items=[];let cur=null;
+function addItem(blob,ext){const url=URL.createObjectURL(blob);
+  const it={blob,url,name:`golden_${new Date().toISOString().replace(/[:.]/g,'-')}.${ext}`,video:ext!=='jpg'};
+  items.unshift(it);updateThumb();renderGallery();if(S.autoSave)download(it);}
+function updateThumb(){const b=$('thumbBtn'),it=items[0];
+  b.style.backgroundImage=it&&!it.video?`url(${it.url})`:'';b.textContent=it&&it.video?'🎬':'';}
+function download(it){const a=document.createElement('a');a.href=it.url;a.download=it.name;document.body.append(a);a.click();a.remove();}
+async function share(it){const f=new File([it.blob],it.name,{type:it.blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});}catch(e){}}else download(it);}
+function renderGallery(){const g=$('galleryGrid');g.innerHTML='';
+  if(!items.length){g.innerHTML='<p class="note">ยังไม่มีภาพหรือวิดีโอ</p>';return;}
+  items.forEach(it=>{const d=document.createElement('div');d.className='gi';
+    const m=document.createElement(it.video?'video':'img');
+    if(it.video){m.muted=true;m.playsInline=true;m.src=it.url+'#t=0.1';}else m.src=it.url;
+    d.append(m);d.onclick=()=>openViewer(it);g.append(d);});}
+function openViewer(it){cur=it;const m=$('vMedia');m.innerHTML='';
+  const el=document.createElement(it.video?'video':'img');el.src=it.url;
+  if(it.video){el.controls=true;el.playsInline=true;}m.append(el);$('viewer').style.display='flex';}
+function closeViewer(){$('viewer').style.display='none';$('vMedia').innerHTML='';}
+$('vClose').onclick=closeViewer;
+$('vSave').onclick=()=>cur&&download(cur);
+$('vShare').onclick=()=>cur&&share(cur);
+$('vDel').onclick=()=>{const i=items.indexOf(cur);if(i>=0){URL.revokeObjectURL(cur.url);items.splice(i,1);}
+  closeViewer();renderGallery();updateThumb();};
+
+/* ===================== เสียง / ข้อความ ===================== */
+function beep(){if(!audioCtx)return;const t=audioCtx.currentTime,o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.frequency.value=880;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.15,t+.02);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(g).connect(audioCtx.destination);o.start(t);o.stop(t+.2);}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';
+  clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3000);}
+
+/* ===================== UI events ===================== */
+function setMode(m){if(st.rec)return;S.mode=m;saveS();
+  document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  $('shutter').classList.toggle('video',m==='video');st.horizon=null;st.face=null;st.good=0;}
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+
+$('shutter').onclick=async()=>{if(st.counting)return;
+  if(S.mode==='video'){st.rec?stopRec():startRec();return;}
+  if(+S.timer>0)await countdown(+S.timer);takePhoto();};
+$('flipBtn').onclick=()=>{if(st.rec)return;S.facing=S.facing==='user'?'environment':'user';saveS();
+  startCamera().catch(()=>toast('สลับกล้องไม่สำเร็จ'));};
+$('setBtn').onclick=()=>$('settings').classList.add('show');
+$('thumbBtn').onclick=()=>{renderGallery();$('gallery').classList.add('show');};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('show'));
+
+document.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;
+  if(el.type==='checkbox')el.checked=!!S[k];else el.value=String(S[k]);
+  el.onchange=()=>{S[k]=el.type==='checkbox'?el.checked:(['timer','fps'].includes(k)?+el.value:el.value);saveS();
+    if(k==='res'||k==='fps')startCamera().catch(()=>toast('อุปกรณ์ไม่รองรับค่านี้'));};});
+
+$('tap').addEventListener('click',e=>{
+  const fr=$('focusRing');fr.style.left=e.clientX+'px';fr.style.top=e.clientY+'px';fr.style.display='block';
+  setTimeout(()=>fr.style.display='none',800);
+  const t=st.track;if(!t||!video.videoWidth)return;const r=visRect();
+  let nx=e.clientX/innerWidth;if(S.facing==='user')nx=1-nx;
+  t.applyConstraints({advanced:[{pointsOfInterest:[{x:(r.sx+nx*r.sw)/r.vw,y:(r.sy+e.clientY/innerHeight*r.sh)/r.vh}]}]}).catch(()=>{});});
+
+function resize(){const d=devicePixelRatio||1;ov.width=innerWidth*d;ov.height=innerHeight*d;octx.setTransform(d,0,0,d,0,0);}
+addEventListener('resize',resize);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)navigator.wakeLock?.request('screen').catch(()=>{});});
+
+/* ===================== Main loop ===================== */
+let lastA=0;
+function loop(t){requestAnimationFrame(loop);
+  if(video.readyState<2||!video.videoWidth)return;
+  if(t-lastA>100){lastA=t;analyze(t);evaluate(t);updateUI();
+    if(st.rec){st.recTicks++;if(st.ok)st.recGood++;}}
+  render();
+  if(st.rec){drawRecFrame();const s=Math.floor((t-st.recStart)/1000);
+    $('rec').textContent=`● ${String(s/60|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}}
+
+$('startBtn').onclick=async()=>{
+  try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  if(!navigator.mediaDevices?.getUserMedia){$('err').textContent='เบราว์เซอร์นี้ใช้กล้องไม่ได้ หรือยังไม่ได้เปิดผ่าน https://';return;}
+  try{await startCamera();$('start').style.display='none';resize();setMode(S.mode);
+    requestAnimationFrame(loop);loadFace();navigator.wakeLock?.request('screen').catch(()=>{});}
+  catch(e){$('err').textContent='เปิดกล้องไม่สำเร็จ: '+(e.message||e.name)+' — ตรวจสอบสิทธิ์กล้อง และต้องเปิดผ่าน https://';}
+};
+</script>
+</body>
+</html>
